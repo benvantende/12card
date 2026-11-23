@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>12card</title>
+  <meta name="theme-color" content="#1d2024">
+  <!-- the app is dark by design: keep browser dark modes (Chrome auto dark, Dark Reader) from recolouring it -->
+  <meta name="color-scheme" content="dark">
+  <meta name="darkreader-lock">
+  <meta name="description" content="Browse, play, check, rename and tidy the songs on a TASCAM Model 12 SD card.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="style.css?v=1.0.0">
+</head>
+<body>
+  <header class="topbar">
+    <h1>12card</h1>
+    <span class="version" title="App version">v1.0.0</span>
+    <span id="modeBadge" class="readonly-badge">Read-only</span>
+    <div class="spacer"></div>
+    <button id="installBtn" class="btn" hidden title="Install as an app on this computer" data-icon="download">Install app</button>
+    <button id="undoBtn" class="icon-btn" disabled aria-label="Undo" data-icon="undo"></button>
+    <button id="redoBtn" class="icon-btn" disabled aria-label="Redo" data-icon="redo"></button>
+    <button id="checkBtn" class="btn" disabled title="Read every file on the card to find damaged files" data-icon="shieldCheck">Check card</button>
+    <button id="openBtn" class="btn primary" data-icon="folderOpen">Open SD card…</button>
+    <input id="dirInput" type="file" webkitdirectory hidden>
+  </header>
+
+  <section class="cardbar">
+    <img class="device-icon" src="icons/icon-192.png" alt="" aria-hidden="true">
+    <div>
+      <div class="device-name">TASCAM Model 12</div>
+      <div id="cardStatus" class="card-status"><span class="dot off"></span>No card opened</div>
+    </div>
+  </section>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="songs" role="tab">Songs <span id="songCount"></span></button>
+        <button class="tab" data-tab="music" role="tab">Mixdowns <span id="musicCount"></span></button>
+      </div>
+      <div class="list-tools">
+        <input id="search" type="search" placeholder="Search songs" autocomplete="off">
+        <div class="sort-wrap">
+          <button type="button" id="sortBtn" class="sort-btn" aria-haspopup="true" aria-expanded="false" title="Sort the songs"></button>
+          <div id="sortPop" class="sort-pop" role="menu" hidden>
+            <div class="sp-head">Sort by</div>
+            <button type="button" role="menuitemradio" data-sort="date">Date</button>
+            <button type="button" role="menuitemradio" data-sort="name">Name</button>
+            <button type="button" role="menuitemradio" data-sort="size">Size</button>
+            <button type="button" role="menuitemradio" data-sort="length">Length</button>
+            <div class="sp-head">Order</div>
+            <div class="sp-dir">
+              <button type="button" role="menuitemradio" data-dir="asc">Ascending</button>
+              <button type="button" role="menuitemradio" data-dir="desc">Descending</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul id="songList" class="song-list"></ul>
+      <ul id="musicList" class="song-list" hidden></ul>
+    </aside>
+
+    <section class="desk" id="desk">
+      <div class="desk-top">
+        <div id="songInfo" class="song-info"></div>
+        <div id="trackMap" class="track-map" hidden></div>
+        <div id="trimBar" class="trim-bar" role="group" aria-label="Trim song" hidden>
+          <b class="tb-title"></b>
+          <label class="tb-time">Start <input id="trimStart" inputmode="decimal" spellcheck="false" title="Where the song will start (minutes:seconds). [ sets it to the play position"></label>
+          <button type="button" id="trimSetStart" class="btn small" title="Start at the play position ( [ )">[ here</button>
+          <label class="tb-time">End <input id="trimEnd" inputmode="decimal" spellcheck="false" title="Where the song will end (minutes:seconds). ] sets it to the play position"></label>
+          <button type="button" id="trimSetEnd" class="btn small" title="End at the play position ( ] )">here ]</button>
+          <button type="button" id="trimFind" class="btn small" title="Put start and end around the sound: the first and last moment louder than −60 dBFS on any track, plus 0.25 s before and 1 s after">Find silence</button>
+          <span id="trimInfo" class="tb-info"></span>
+          <button type="button" id="trimCancel" class="btn small">Cancel</button>
+          <button type="button" id="trimGo" class="btn small primary">Trim…</button>
+        </div>
+        <div id="viewBar" class="view-bar"></div>
+      </div>
+      <div class="desk-console">
+        <div id="mixer" class="mixer"></div>
+      <div id="welcome" class="welcome">
+        <h2>Open your Model 12 SD card</h2>
+        <p>Put the card in your computer, click <b>Open SD card…</b> and pick the card (usually named <code>TASCAM_M</code>) or a copy of it.</p>
+        <p>The app only reads from the card. Nothing is uploaded: everything stays on your computer.</p>
+        <p id="browserNote" class="note"></p>
+      </div>
+      </div>
+      <div class="desk-side transport">
+      <div class="desk-player">
+      <div class="lcd booting" id="lcd" aria-live="off">
+        <div class="lcd-screen">
+          <div class="lcd-row lcd-top"><span id="lcdState" class="lcd-state">■ NO SONG</span><span id="lcdMode" class="lcd-tag"></span></div>
+          <div id="lcdName" class="lcd-name">—</div>
+          <div class="lcd-time"><span class="lcd-ghost" aria-hidden="true">88:88:88</span><span id="lcdPos">00:00:00</span></div>
+          <div class="lcd-row lcd-bottom"><span id="lcdFmt"></span><span>/ <span id="lcdDur">00:00:00</span></span></div>
+        </div>
+      </div>
+      <div class="seek-wrap">
+        <input id="seek" type="range" min="0" max="1" step="0.001" value="0" disabled>
+        <div id="markLayer" class="mark-layer"></div>
+      </div>
+      <div class="buttons">
+        <button id="startBtn" class="tbtn small" title="To the start" aria-label="To the start" data-icon="skipStart"></button>
+        <button id="prevBtn" class="tbtn" title="Previous mark / start" aria-label="Previous mark or start" data-icon="rewind"></button>
+        <button id="playBtn" class="tbtn play" title="Play/pause (space) · double-click: from the start" aria-label="Play" disabled data-icon="play"></button>
+        <button id="nextBtn" class="tbtn" title="Next mark" aria-label="Next mark" data-icon="forward"></button>
+        <button id="endBtn" class="tbtn small" title="To the end" aria-label="To the end" data-icon="skipEnd"></button>
+      </div>
+      <div class="mode" role="radiogroup" aria-label="Playback source">
+        <button id="modeMulti" class="seg" title="Play tracks 1–10 through the preview mixer">Multitrack</button>
+        <button id="modeMain" class="seg" title="Play the recorded main mix (TR11/12)">Main mix</button>
+      </div>
+      </div>
+      <div id="fxBox" class="fx-panel fx-box">
+        <div class="fx-tabs" role="tablist" aria-label="Effects">
+          <button type="button" class="fx-tab" role="tab" data-fx="0" id="fxTab0">FX 1<span class="fx-dot" title="In use: a channel sends to FX 1"></span></button>
+          <button type="button" class="fx-tab" role="tab" data-fx="1" id="fxTab1">FX 2<span class="fx-dot" title="In use: a channel sends to FX 2"></span></button>
+        </div>
+      <div id="fxPanel" class="fx-pane fx1-panel" data-fx="0" role="tabpanel">
+        <div class="fx-row">
+          <label for="fxType">EFFECT</label>
+          <select id="fxType" data-fxkey="type"></select>
+        </div>
+        <div class="fx-row">
+          <label id="fxParamLabel" for="fxParam">DECAY</label>
+          <input id="fxParam" type="range" min="0" max="1" step="0.001" value="0.5" data-fxkey="param">
+        </div>
+        <div id="fxParamValue" class="fx-value"></div>
+        <div id="fxTempoRow" class="fx-row fx-tempo">
+          <label for="fxTempo">TEMPO</label>
+          <input id="fxTempo" type="number" min="30" max="300" step="1" value="120" data-fxkey="tempo"> <span>BPM</span>
+          <button id="fxTempoReset" class="link-btn" data-fxkey="song" title="Use the song's tempo from the card">song</button>
+        </div>
+        <div id="fxHint" class="fx-hint"></div>
+      </div>
+      <div id="fx2Panel" class="fx-pane fx2-panel" data-fx="1" role="tabpanel">
+        <div class="fx-row">
+          <label for="fx2Type">EFFECT</label>
+          <select id="fx2Type" data-fxkey="type"></select>
+        </div>
+        <div class="fx-row">
+          <label id="fx2ParamLabel" for="fx2Param">DECAY</label>
+          <input id="fx2Param" type="range" min="0" max="1" step="0.001" value="0.5" data-fxkey="param">
+        </div>
+        <div id="fx2ParamValue" class="fx-value"></div>
+        <div id="fx2TempoRow" class="fx-row fx-tempo">
+          <label for="fx2Tempo">TEMPO</label>
+          <input id="fx2Tempo" type="number" min="30" max="300" step="1" value="120" data-fxkey="tempo"> <span>BPM</span>
+          <button id="fx2TempoReset" class="link-btn" data-fxkey="song" title="Use the song's tempo from the card">song</button>
+        </div>
+        <div id="fx2Hint" class="fx-hint"></div>
+      </div>
+      </div>
+      <div id="masterPanel" class="fx-panel master-panel">
+        <div class="fx-head">MASTERING</div>
+        <div class="fx-row">
+          <label for="mstPreset">PRESET</label>
+          <select id="mstPreset"></select>
+        </div>
+        <div class="fx-row">
+          <label for="mstAmount">AMOUNT</label>
+          <input id="mstAmount" type="range" min="0" max="1" step="0.01" value="1">
+        </div>
+        <div id="mstAmountValue" class="fx-value"></div>
+        <div id="mstDesc" class="fx-hint mst-desc"></div>
+        <div class="fx-row">
+          <label for="mstLoud" title="Loudness of My mix downloads, with a limiter so nothing clips">LOUDNESS</label>
+          <select id="mstLoud" title="Loudness of My mix downloads, with a limiter so nothing clips"></select>
+        </div>
+      </div>
+      <div class="master-strip" id="masterStrip">
+      <div class="master">
+        <div class="fader-wrap fx-ret"><input id="fxFader" class="fader fx-fader" type="range" min="0" max="1" step="0.001" value="0.75" aria-label="FX 1 return" data-fx="0"></div>
+        <div class="fader-wrap fx-ret"><input id="fx2Fader" class="fader fx-fader fx2-fader" type="range" min="0" max="1" step="0.001" value="0.75" aria-label="FX 2 return" data-fx="1"></div>
+        <div class="fader-wrap"><input id="masterFader" class="fader master-fader" type="range" min="0" max="1" step="0.001" value="0.75" aria-label="Main fader"></div>
+        <div class="meter-col">
+          <div class="meter"><div id="meterL" class="meter-fill"></div></div>
+          <div class="meter"><div id="meterR" class="meter-fill"></div></div>
+        </div>
+      </div>
+      <div class="master-labels">
+        <span class="fx-label">FX 1 <button id="fxMute" class="sw mute fx-mute" data-fx="0" title="Mute FX 1">MUTE</button></span>
+        <span class="fx-label fx2-label">FX 2 <button id="fx2Mute" class="sw mute fx-mute" data-fx="1" title="Mute FX 2">MUTE</button></span>
+        <span class="main-label">MAIN<button id="clipInd" class="clip-ind" title="The main output went over 0 dBFS (clipping). Click to clear." hidden></button></span>
+        <span>L R</span>
+      </div>
+      </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <div id="notice" class="notice" hidden role="status"></div>
+  <div id="updateBar" class="update-bar" hidden>
+    <span>A new version of the app is ready.</span>
+    <button id="updateBtn" class="btn primary">Update now</button>
+  </div>
+
+  <dialog id="renameDlg">
+    <form id="renameForm" method="dialog">
+      <h3>Rename song</h3>
+      <label class="field">New name <span id="renameCount" class="count"></span>
+        <input id="renameInput" type="text" autocomplete="off" spellcheck="false">
+      </label>
+      <ul id="renameErrors" class="errors"></ul>
+      <ul id="renameNotes" class="notes"></ul>
+      <label id="backupRow" class="backup"><input id="backupCheck" type="checkbox"> I have a copy of this card on my computer</label>
+      <div class="dlg-buttons">
+        <button type="button" id="renameCancel" class="btn">Cancel</button>
+        <button type="submit" id="renameOk" class="btn primary">Rename on card</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="tracksDlg">
+    <form id="trkForm" method="dialog">
+      <h3>Swap or copy tracks</h3>
+      <div class="seg-row" role="radiogroup">
+        <label><input type="radio" name="trkMode" value="swap" checked> Swap <small>like the unit</small></label>
+        <label><input type="radio" name="trkMode" value="copy"> Copy <small>replaces the target</small></label>
+      </div>
+      <div class="trk-row">
+        <label class="field" id="trkSrcLabel">Swap <select id="trkSrc"></select></label>
+        <span class="trk-arrow" id="trkArrow">⇄</span>
+        <label class="field" id="trkDstLabel">with <select id="trkDst"></select></label>
+      </div>
+      <ul id="trkErrors" class="errors"></ul>
+      <ul id="trkNotes" class="notes"></ul>
+      <label id="trkBackupRow" class="backup"><input id="trkBackupCheck" type="checkbox"> I have a copy of this card on my computer</label>
+      <div class="dlg-buttons">
+        <button type="button" id="trkCancel" class="btn">Cancel</button>
+        <button type="submit" id="trkOk" class="btn primary">Copy on card</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="clearDlg">
+    <form id="clrForm" method="dialog">
+      <h3>Clear tracks</h3>
+      <p class="muted small">Empties tracks of this song on the card, for example everything except 7/8 to start a new recording on top of a bounced mix.</p>
+      <div id="clrList" class="clr-list"></div>
+      <div class="clr-quick">Tick all except <select id="clrKeep"><option value="7/8">7/8</option><option value="9/10">9/10</option><option value="11/12">11/12</option><option value="">nothing (all)</option></select> <button type="button" id="clrAll" class="link-btn">apply</button></div>
+      <ul id="clrNotes" class="notes"></ul>
+      <label id="clrBackupRow" class="backup"><input id="clrBackupCheck" type="checkbox"> I have a copy of this card on my computer</label>
+      <div class="dlg-buttons">
+        <button type="button" id="clrCancel" class="btn">Cancel</button>
+        <button type="submit" id="clrOk" class="btn primary">Clear on card</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="trimDlg">
+    <form id="trimForm" method="dialog">
+      <h3>Trim song</h3>
+      <p class="muted small">Cuts the same stretch off the start and end of every track, so they stay in sync. Each track keeps its own Model 12 header and its audio is copied sample for sample: nothing else changes.</p>
+      <ul id="trimNotes" class="notes"></ul>
+      <label id="trimBackupRow" class="backup"><input id="trimBackupCheck" type="checkbox"> I have a copy of this card on my computer</label>
+      <div class="dlg-buttons">
+        <button type="button" id="trimDlgCancel" class="btn">Cancel</button>
+        <button type="submit" id="trimOk" class="btn primary">Trim on card</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="importDlg">
+    <form id="impForm" method="dialog">
+      <h3>Import audio</h3>
+      <p class="muted small">Puts an audio file on an empty track, like TRACK IMPORT on the Model 12. Mono goes on a single track, stereo on a pair. WAV, FLAC, MP3, M4A/AAC, OGG and Opus; other sample rates are converted to the song's.</p>
+      <label class="field">From the card's MUSIC folder <select id="impMusic" class="full"></select></label>
+      <label class="field">or from this computer <input id="impFile" type="file" accept=".wav,.flac,.mp3,.m4a,.aac,.ogg,.oga,.opus,.aif,.aiff,audio/*"></label>
+      <div id="impInfo" class="imp-info"></div>
+      <label id="impNormRow" class="imp-norm" hidden><input id="impNorm" type="checkbox"> <span id="impNormText"></span></label>
+      <div class="seg-row imp-into">
+        <label><input type="radio" name="impInto" value="song" checked> Into this song <small id="impSongName"></small></label>
+        <label><input type="radio" name="impInto" value="new"> Into a new song <small>e.g. to play along with</small></label>
+      </div>
+      <label id="impNewRow" class="field" hidden>Name of the new song (max 11 characters) <input id="impNewName" maxlength="40" autocomplete="off" spellcheck="false"></label>
+      <label class="field">Onto <select id="impDst" class="full"></select></label>
+      <ul id="impErrors" class="errors"></ul>
+      <ul id="impNotes" class="notes"></ul>
+      <label id="impBackupRow" class="backup"><input id="impBackupCheck" type="checkbox"> I have a copy of this card on my computer</label>
+      <div class="dlg-buttons">
+        <button type="button" id="impCancel" class="btn">Cancel</button>
+        <button type="submit" id="impOk" class="btn primary">Import on card</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="exportDlg">
+    <form id="expForm" method="dialog">
+      <h3>Export stereo mix</h3>
+      <p class="muted small">Makes one stereo file of the song.</p>
+      <div class="seg-row exp-src">
+        <label><input type="radio" name="expSrc" value="rec" checked> The recorded mix <small>tracks 11/12, exactly like STEREO MIX EXPORT on the unit</small></label>
+        <label><input type="radio" name="expSrc" value="app"> My mix <small>tracks 1–10 through the app's console, effects and mastering · download only</small></label>
+      </div>
+      <div class="imp-info">File: <b id="expFiles"></b><span id="expFileNote" class="muted"></span></div>
+      <ul id="expErrors" class="errors"></ul>
+      <div class="exp-choice">
+        <label><input type="radio" name="expTo" value="card"> Save in the card's MUSIC folder <small id="expCardNote"></small></label>
+        <label><input type="radio" name="expTo" value="download"> Download to this computer <small>as FLAC: lossless, with title, artist and cover · nothing on the card changes</small></label>
+      </div>
+      <label id="expTrimRow" class="exp-trim"><input id="expTrim" type="checkbox" checked> <span><b>Trim the silence</b> at the start and end <small>The Model 12 always records some silence before and after the music. Keeps ¼ s before the first sound and 1 s after the last, so nothing gets cut off.</small></span></label>
+      <fieldset id="expMeta" class="exp-meta" hidden>
+        <div class="em-head">Any song info to add or change?<small>Written into the downloaded file as tags, so music players and DAWs show it. Files on the card stay exactly like the Model 12's own, without tags.</small></div>
+        <label class="mf mf-title"><span>Title</span><input id="expMeta_title"></label>
+        <label class="mf"><span>Artist</span><input id="expMeta_artist"></label>
+        <label class="mf"><span>Genre</span><input id="expMeta_genre"></label>
+        <label class="mf"><span>Year</span><input id="expMeta_year" inputmode="numeric" maxlength="4"></label>
+        <label class="mf"><span>BPM</span><input id="expMeta_bpm" inputmode="decimal" maxlength="6"></label>
+        <label class="mf mf-comment"><span>Description</span><textarea id="expMeta_description" rows="2"></textarea></label>
+        <label class="mf mf-comment"><span>Comment</span><textarea id="expMeta_comment" rows="2"></textarea></label>
+        <div class="em-cover" id="expCoverRow">
+          <img id="expCoverImg" alt="Cover preview" title="Click to see it larger">
+          <div class="em-cover-text">
+          <label id="expCoverLabel"><input type="checkbox" id="expCover" checked> Artwork: <b>made for this song</b></label>
+          <small id="expCoverNone">The faders show the song's own levels (tracks 1–6, 7–10, main mix). Put a <code>cover.jpg</code> in the root of the card to use your own picture instead.</small>
+          </div>
+        </div>
+        <label class="em-save"><input type="checkbox" id="expMetaSave" checked> Also save this as the song's info (metadata.txt)</label>
+      </fieldset>
+      <div class="dlg-buttons">
+        <button type="button" id="expCancel" class="btn">Cancel</button>
+        <button type="submit" id="expOk" class="btn primary">Export</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="deleteDlg">
+    <form method="dialog" id="deleteForm">
+      <h3>Delete song</h3>
+      <p id="delMsg"></p>
+      <label class="field">Type <b>DELETE</b> to confirm
+        <input id="delConfirm" class="full" type="text" autocomplete="off" spellcheck="false" placeholder="DELETE">
+      </label>
+      <div class="dlg-buttons">
+        <button type="button" id="delCancel" class="btn">Cancel</button>
+        <button type="submit" id="delOk" class="btn danger" disabled>Delete for good</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="choiceDlg">
+    <h3 id="choiceTitle"></h3>
+    <p id="choiceMsg"></p>
+    <div class="dlg-buttons" id="choiceButtons"></div>
+  </dialog>
+
+  <dialog id="checkDlg">
+    <h3>Check card</h3>
+    <p class="muted">Reads every byte of every file. A failing card shows up here as files that can't be read.</p>
+    <div class="progress"><div id="checkBar"></div></div>
+    <div id="checkFile" class="muted small"></div>
+    <div id="checkResult"></div>
+    <div class="dlg-buttons"><button id="checkClose" class="btn">Cancel</button></div>
+  </dialog>
+
+  <dialog id="alertDlg">
+    <h3 id="alertTitle"></h3>
+    <p id="alertMsg"></p>
+    <div class="dlg-buttons"><button id="alertOk" class="btn primary">OK</button></div>
+  </dialog>
+
+  <div id="busy" class="busy" hidden><div class="busy-box"><div class="spinner"></div><div id="busyMsg"></div><small>Don't remove the card.</small>
+    <div id="busyStuck" class="busy-stuck" hidden>Nothing has happened for a while. Is the card still connected?<br>Check it (and that it's mounted), then reload 12card. Every change is checked, so the card isn't left half-done.<button type="button" id="busyReload" class="btn">Reload 12card</button></div></div></div>
+
+  <!-- configuration (plain JSON inside): card format and console setup -->
+  <script src="config/card-model12.js?v=1.0.0"></script>
+  <script src="config/mixer.js?v=1.0.0"></script>
+  <script src="config/mastering.js?v=1.0.0"></script>
+  <script src="icons.js?v=1.0.0"></script>
+  <script src="model12.js?v=1.0.0"></script>
+  <script src="loudness.js?v=1.0.0"></script>
+  <script src="fx.js?v=1.0.0"></script>
+  <script src="master.js?v=1.0.0"></script>
+  <script src="player.js?v=1.0.0"></script>
+  <script src="cardio.js?v=1.0.0"></script>
+  <script src="trackmap.js?v=1.0.0"></script>
+  <script src="cover.js?v=1.0.0"></script>
+  <script src="flac.js?v=1.0.0"></script>
+  <script src="app.js?v=1.0.0"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# card copies and audio never go in the repo; the small test fixtures do
+*.wav
+*.flac
+*.mp3
+*.sys
+!tests/fixtures/**
+__pycache__/
+.DS_Store
